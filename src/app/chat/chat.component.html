@@ -1,0 +1,242 @@
+<!-- src/app/chat/chat.component.html -->
+<div class="chat-container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="user-info">
+        <div class="user-avatar">{{ getFirstChar(currentUser?.email) }}</div>
+        <div class="user-details">
+          <div class="user-email">{{ currentUser?.email }}</div>
+          <div class="user-id">ID: {{ currentUser?.id?.substring(0, 8) }}...</div>
+        </div>
+      </div>
+      <button class="logout-btn" (click)="logout()">
+        <span>🚪</span> Logout
+      </button>
+    </div>
+
+    <div class="new-chat">
+      <input
+        type="text"
+        [(ngModel)]="newChatUserId"
+        placeholder="Enter user ID to chat"
+        (keyup.enter)="createDirectChat()"
+        [disabled]="loading"
+      />
+      <button (click)="createDirectChat()" [disabled]="loading">
+        {{ loading ? '...' : '➕' }}
+      </button>
+    </div>
+
+    <div class="conversations-list">
+      <div class="conversations-header">
+        <h3>Conversations</h3>
+        <span class="conv-count">{{ conversations.length }}</span>
+      </div>
+
+      <div *ngIf="conversations.length === 0" class="no-conversations">
+        <p>No conversations yet</p>
+        <small>Start a new chat above</small>
+      </div>
+
+      <div
+        *ngFor="let conv of conversations"
+        class="conversation-item"
+        [class.active]="selectedConversation?._id === conv._id"
+        (click)="selectConversation(conv)"
+      >
+        <div class="conv-avatar">
+          {{ getOtherUserIdFirstChar(conv) }}
+          <span
+            class="online-indicator"
+            *ngIf="isUserOnline(getOtherUserId(conv))"
+          ></span>
+        </div>
+        <div class="conv-details">
+          <div class="conv-header">
+            <div class="conv-name">
+              {{ conv.name || getOtherUserId(conv) || 'Unknown' }}
+            </div>
+            <div class="conv-time">
+              {{ conv.last_activity | date: 'short' }}
+            </div>
+          </div>
+          <div class="conv-footer">
+            <div class="conv-last-message">
+              {{ conv.last_message?.text_preview || 'No messages yet' }}
+            </div>
+            <div
+              class="conv-unread"
+              *ngIf="getUnreadCount(conv) > 0"
+            >
+              {{ getUnreadCount(conv) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chat-area">
+    <div *ngIf="!selectedConversation" class="no-chat-selected">
+      <div class="welcome-message">
+        <div class="welcome-icon">💬</div>
+        <h2>Welcome to Chat!</h2>
+        <p>Select a conversation or start a new chat</p>
+        <div class="welcome-features">
+          <div class="feature">
+            <span>✉️</span> Real-time messaging
+          </div>
+          <div class="feature">
+            <span>📎</span> File sharing
+          </div>
+          <div class="feature">
+            <span>👤</span> Online status
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="selectedConversation" class="chat-content">
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div class="chat-user-info">
+          <div class="chat-avatar">
+            {{ getOtherUserIdFirstChar(selectedConversation) }}
+            <span
+              class="online-dot"
+              *ngIf="isUserOnline(getOtherUserId(selectedConversation))"
+            ></span>
+          </div>
+          <div class="chat-details">
+            <div class="chat-name">
+              {{ selectedConversation.name || getOtherUserId(selectedConversation) }}
+            </div>
+            <div class="chat-status">
+              <span *ngIf="isUserOnline(getOtherUserId(selectedConversation))" class="status-online">
+                <span class="status-dot"></span> Online
+              </span>
+              <span *ngIf="!isUserOnline(getOtherUserId(selectedConversation))" class="status-offline">
+                <span class="status-dot"></span> Offline
+              </span>
+              <span *ngIf="typingUsers.size > 0" class="typing-indicator">
+                <span class="typing-dots">
+                  <span></span><span></span><span></span>
+                </span>
+                typing...
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <span class="message-count">{{ messages.length }} messages</span>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages-container" #messagesContainer>
+        <div class="messages-wrapper">
+          <div
+            *ngFor="let message of messages"
+            class="message"
+            [class.my-message]="isMyMessage(message)"
+            [class.other-message]="!isMyMessage(message)"
+          >
+            <div class="message-bubble">
+              <div class="message-content">
+                <div class="message-text" *ngIf="message.text_content">
+                  {{ message.text_content }}
+                </div>
+                <div class="message-attachments" *ngIf="message.attachments && message.attachments.length > 0">
+                  <div *ngFor="let attachment of message.attachments" class="attachment">
+                    <img
+                      *ngIf="attachment.media_type === 'image'"
+                      [src]="'http://localhost:8000/' + attachment.url"
+                      [alt]="attachment.file_name || 'Image'"
+                      class="attachment-image"
+                    />
+                    <video
+                      *ngIf="attachment.media_type === 'video'"
+                      [src]="'http://localhost:8000/' + attachment.url"
+                      controls
+                      class="attachment-video"
+                    ></video>
+                    <audio
+                      *ngIf="attachment.media_type === 'audio'"
+                      [src]="'http://localhost:8000/' + attachment.url"
+                      controls
+                      class="attachment-audio"
+                    ></audio>
+                    <div *ngIf="attachment.media_type === 'file'" class="file-attachment">
+                      <span class="file-icon">📎</span>
+                      <div class="file-info">
+                        <div class="file-name">{{ attachment.file_name }}</div>
+                        <div class="file-size">{{ formatFileSize(attachment.file_size) }}</div>
+                      </div>
+                      <a [href]="'http://localhost:8000/' + attachment.url" download class="file-download">
+                        ⬇️
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="message-meta">
+                <span class="message-time">{{ message.created_at | date: 'short' }}</span>
+                <span *ngIf="isMyMessage(message)" class="message-status">
+                  <span *ngIf="message.status === 'sent'" class="status-sent">✓</span>
+                  <span *ngIf="message.status === 'delivered'" class="status-delivered">✓✓</span>
+                  <span *ngIf="message.status === 'read'" class="status-read">✓✓</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message Input -->
+      <div class="message-input-container">
+        <div class="selected-files" *ngIf="selectedFiles.length > 0">
+          <div *ngFor="let file of selectedFiles; let i = index" class="selected-file">
+            <span class="file-icon">📎</span>
+            <span class="file-name">{{ file.name }}</span>
+            <button class="remove-file" (click)="removeFile(i)">✕</button>
+          </div>
+        </div>
+        
+        <div class="input-wrapper">
+          <input
+            type="file"
+            #fileInput
+            (change)="onFileSelected($event)"
+            multiple
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+            style="display: none"
+          />
+          
+          <button class="attach-btn" (click)="fileInput.click()">
+            <span>📎</span>
+          </button>
+          
+          <input
+            type="text"
+            [(ngModel)]="messageText"
+            (keyup.enter)="sendMessage()"
+            (keyup)="onTyping()"
+            (blur)="onStopTyping()"
+            placeholder="Type a message..."
+            class="message-input"
+          />
+          
+          <button
+            class="send-btn"
+            (click)="sendMessage()"
+            [disabled]="!messageText.trim() && selectedFiles.length === 0"
+          >
+            <span>➤</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

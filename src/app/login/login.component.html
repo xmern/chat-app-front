@@ -1,0 +1,83 @@
+<!-- src/app/components/login/login.component.html -->
+<div class="login-container">
+  <div class="login-box">
+    <h1>Chat Login</h1>
+    <p class="subtitle">Login with your credentials</p>
+    
+    <form (ngSubmit)="login()">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          [(ngModel)]="email"
+          name="email"
+          placeholder="user@example.com"
+          required
+          [disabled]="loading"
+          autocomplete="email"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          [(ngModel)]="password"
+          name="password"
+          placeholder="Enter your password"
+          required
+          [disabled]="loading"
+          autocomplete="current-password"
+        />
+      </div>
+
+      <div class="form-group checkbox-group">
+        <label>
+          <input
+            type="checkbox"
+            [(ngModel)]="rememberMe"
+            name="rememberMe"
+            [disabled]="loading"
+          />
+          Remember me
+        </label>
+      </div>
+
+      <div class="error" *ngIf="error">
+        <span>⚠️</span> {{ error }}
+      </div>
+
+      <button type="submit" [disabled]="loading" class="login-button">
+        <span *ngIf="!loading">Login</span>
+        <span *ngIf="loading" class="loading-spinner">
+          <span class="spinner"></span> Logging in...
+        </span>
+      </button>
+    </form>
+
+    <div class="divider">
+      <span>OR</span>
+    </div>
+
+    <div class="test-users">
+      <p><strong>Quick Test Login:</strong></p>
+      <p class="test-instructions">Open multiple tabs and login with different test users:</p>
+      <div class="test-user-buttons">
+        <button
+          *ngFor="let user of testUsers; let i = index"
+          (click)="quickLogin(user.email, user.password)"
+          [disabled]="loading"
+          class="test-user-btn"
+        >
+          <div class="user-avatar">{{ user.email[0].toUpperCase() }}</div>
+          <span>{{ user.email }}</span>
+        </button>
+      </div>
+      <p class="test-note">
+        <small>💡 Tip: Use these test accounts to simulate multi-user chat</small>
+      </p>
+    </div>
+  </div>
+</div>
