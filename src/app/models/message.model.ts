@@ -1,6 +1,6 @@
 // src/app/models/message.model.ts
 export interface Message {
-  id: string;
+  _id: string;
   conversation_id: string;
   sender_id: string;
   text_content?: string;

@@ -1,7 +1,7 @@
 // src/environments/environment.ts
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8000',
-  socketUrl: 'http://localhost:8000',
+  apiUrl: 'https://api-dev.gignaija.com',
+  socketUrl: 'https://api-dev.gignaija.com',
   socketPath: '/socket.io'
 };

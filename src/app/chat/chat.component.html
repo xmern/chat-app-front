@@ -10,6 +10,19 @@
           <div class="user-id">ID: {{ currentUser?.id?.substring(0, 8) }}...</div>
         </div>
       </div>
+      <div class="header-actions">
+        <button class="icon-btn" (click)="toggleStatsPanel()" title="Statistics">
+          📊
+        </button>
+        <button 
+          *ngIf="isAdmin()" 
+          class="icon-btn" 
+          (click)="toggleAdminPanel()" 
+          title="Admin Panel"
+        >
+          ⚙️
+        </button>
+      </div>
       <button class="logout-btn" (click)="logout()">
         <span>🚪</span> Logout
       </button>
@@ -23,8 +36,11 @@
         (keyup.enter)="createDirectChat()"
         [disabled]="loading"
       />
-      <button (click)="createDirectChat()" [disabled]="loading">
-        {{ loading ? '...' : '➕' }}
+      <button (click)="createDirectChat()" [disabled]="loading" title="New Direct Chat">
+        {{ loading ? '...' : '💬' }}
+      </button>
+      <button (click)="openGroupModal()" [disabled]="loading" class="group-btn" title="Create Group">
+        👥
       </button>
     </div>
 
@@ -43,19 +59,21 @@
         *ngFor="let conv of conversations"
         class="conversation-item"
         [class.active]="selectedConversation?._id === conv._id"
+        [class.group-conv]="conv.conversation_type === 'group'"
         (click)="selectConversation(conv)"
       >
-        <div class="conv-avatar">
-          {{ getOtherUserIdFirstChar(conv) }}
+        <div class="conv-avatar" [class.group-avatar]="conv.conversation_type === 'group'">
+          <span *ngIf="conv.conversation_type === 'group'">👥</span>
+          <span *ngIf="conv.conversation_type === 'direct'">{{ getOtherUserIdFirstChar(conv) }}</span>
           <span
             class="online-indicator"
-            *ngIf="isUserOnline(getOtherUserId(conv))"
+            *ngIf="conv.conversation_type === 'direct' && isUserOnline(getOtherUserId(conv))"
           ></span>
         </div>
         <div class="conv-details">
           <div class="conv-header">
             <div class="conv-name">
-              {{ conv.name || getOtherUserId(conv) || 'Unknown' }}
+              {{ getConversationName(conv) }}
             </div>
             <div class="conv-time">
               {{ conv.last_activity | date: 'short' }}
@@ -65,13 +83,27 @@
             <div class="conv-last-message">
               {{ conv.last_message?.text_preview || 'No messages yet' }}
             </div>
-            <div
-              class="conv-unread"
-              *ngIf="getUnreadCount(conv) > 0"
-            >
+            <div class="conv-unread" *ngIf="getUnreadCount(conv) > 0">
               {{ getUnreadCount(conv) }}
             </div>
           </div>
+        </div>
+        
+        <div class="conv-quick-actions">
+          <button 
+            class="conv-action-btn" 
+            (click)="toggleMuteConversation(conv); $event.stopPropagation()" 
+            [title]="isConversationMuted(conv) ? 'Unmute' : 'Mute'"
+          >
+            {{ isConversationMuted(conv) ? '🔔' : '🔕' }}
+          </button>
+          <button 
+            class="conv-action-btn" 
+            (click)="toggleArchiveConversation(conv); $event.stopPropagation()" 
+            [title]="isConversationArchived(conv) ? 'Unarchive' : 'Archive'"
+          >
+            {{ isConversationArchived(conv) ? '📂' : '📁' }}
+          </button>
         </div>
       </div>
     </div>
@@ -84,17 +116,6 @@
         <div class="welcome-icon">💬</div>
         <h2>Welcome to Chat!</h2>
         <p>Select a conversation or start a new chat</p>
-        <div class="welcome-features">
-          <div class="feature">
-            <span>✉️</span> Real-time messaging
-          </div>
-          <div class="feature">
-            <span>📎</span> File sharing
-          </div>
-          <div class="feature">
-            <span>👤</span> Online status
-          </div>
-        </div>
       </div>
     </div>
 
@@ -102,23 +123,31 @@
       <!-- Chat Header -->
       <div class="chat-header">
         <div class="chat-user-info">
-          <div class="chat-avatar">
-            {{ getOtherUserIdFirstChar(selectedConversation) }}
+          <div class="chat-avatar" [class.group-avatar]="selectedConversation.conversation_type === 'group'">
+            <span *ngIf="selectedConversation.conversation_type === 'group'">👥</span>
+            <span *ngIf="selectedConversation.conversation_type === 'direct'">
+              {{ getOtherUserIdFirstChar(selectedConversation) }}
+            </span>
             <span
               class="online-dot"
-              *ngIf="isUserOnline(getOtherUserId(selectedConversation))"
+              *ngIf="selectedConversation.conversation_type === 'direct' && isUserOnline(getOtherUserId(selectedConversation))"
             ></span>
           </div>
           <div class="chat-details">
             <div class="chat-name">
-              {{ selectedConversation.name || getOtherUserId(selectedConversation) }}
+              {{ getConversationName(selectedConversation) }}
             </div>
             <div class="chat-status">
-              <span *ngIf="isUserOnline(getOtherUserId(selectedConversation))" class="status-online">
-                <span class="status-dot"></span> Online
+              <span *ngIf="selectedConversation.conversation_type === 'direct'">
+                <span *ngIf="isUserOnline(getOtherUserId(selectedConversation))" class="status-online">
+                  <span class="status-dot"></span> Online
+                </span>
+                <span *ngIf="!isUserOnline(getOtherUserId(selectedConversation))" class="status-offline">
+                  <span class="status-dot"></span> Offline
+                </span>
               </span>
-              <span *ngIf="!isUserOnline(getOtherUserId(selectedConversation))" class="status-offline">
-                <span class="status-dot"></span> Offline
+              <span *ngIf="selectedConversation.conversation_type === 'group'">
+                {{ selectedConversation.participant_ids.length }} members
               </span>
               <span *ngIf="typingUsers.size > 0" class="typing-indicator">
                 <span class="typing-dots">
@@ -126,11 +155,20 @@
                 </span>
                 typing...
               </span>
+              
             </div>
           </div>
         </div>
         <div class="chat-actions">
           <span class="message-count">{{ messages.length }} messages</span>
+          <button 
+            
+            class="settings-btn"
+            (click)="openGroupSettings()"
+            title="Group Settings"
+          >
+            ⚙️
+          </button>
         </div>
       </div>
 
@@ -144,10 +182,23 @@
             [class.other-message]="!isMyMessage(message)"
           >
             <div class="message-bubble">
+              <div class="reply-to" *ngIf="message.reply_to">
+                <div class="reply-line"></div>
+                <div class="reply-content">
+                  <span class="reply-label">Replying to</span>
+                  <span class="reply-text">{{ getRepliedMessage(message.reply_to)?.text_content || 'Message' }}</span>
+                </div>
+              </div>
+
               <div class="message-content">
+                <div class="message-header" *ngIf="selectedConversation.conversation_type === 'group' && !isMyMessage(message)">
+                  <span class="sender-name">{{ message.sender_id.substring(0, 8) }}...</span>
+                </div>
+                
                 <div class="message-text" *ngIf="message.text_content">
                   {{ message.text_content }}
                 </div>
+                
                 <div class="message-attachments" *ngIf="message.attachments && message.attachments.length > 0">
                   <div *ngFor="let attachment of message.attachments" class="attachment">
                     <img
@@ -180,7 +231,28 @@
                     </div>
                   </div>
                 </div>
+
+                <button 
+                  class="message-menu-btn"
+                  (click)="toggleMessageMenu(message._id)"
+                >
+                  ⋮
+                </button>
+
+                <div class="message-menu" *ngIf="showMessageMenu[message._id]">
+                  <button (click)="replyTo(message)">
+                    <span>↩️</span> Reply
+                  </button>
+                  <button 
+                    *ngIf="isMyMessage(message)" 
+                    (click)="deleteMessage(message)"
+                    class="delete-btn"
+                  >
+                    <span>🗑️</span> Delete
+                  </button>
+                </div>
               </div>
+
               <div class="message-meta">
                 <span class="message-time">{{ message.created_at | date: 'short' }}</span>
                 <span *ngIf="isMyMessage(message)" class="message-status">
@@ -196,6 +268,17 @@
 
       <!-- Message Input -->
       <div class="message-input-container">
+        <div class="reply-preview" *ngIf="replyToMessage">
+          <div class="reply-preview-content">
+            <span class="reply-icon">↩️</span>
+            <div class="reply-info">
+              <span class="reply-label">Replying to</span>
+              <span class="reply-text">{{ replyToMessage.text_content }}</span>
+            </div>
+          </div>
+          <button class="cancel-reply" (click)="cancelReply()">✕</button>
+        </div>
+
         <div class="selected-files" *ngIf="selectedFiles.length > 0">
           <div *ngFor="let file of selectedFiles; let i = index" class="selected-file">
             <span class="file-icon">📎</span>
@@ -237,6 +320,298 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Stats Panel -->
+  <div class="side-panel stats-panel" *ngIf="showStatsPanel">
+    <div class="panel-header">
+      <h2>📊 Statistics</h2>
+      <button class="close-btn" (click)="toggleStatsPanel()">✕</button>
+    </div>
+    
+    <div class="panel-body">
+      <div class="stats-section" *ngIf="userStats">
+        <h3>Your Stats</h3>
+        <div class="stat-item">
+          <span class="stat-label">Total Conversations</span>
+          <span class="stat-value">{{ userStats.total_conversations }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Active Conversations</span>
+          <span class="stat-value">{{ userStats.active_conversations }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Unread Messages</span>
+          <span class="stat-value">{{ userStats.total_unread_messages }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Messages Sent</span>
+          <span class="stat-value">{{ userStats.total_messages_sent }}</span>
+        </div>
+      </div>
+
+      <div class="stats-section" *ngIf="conversationStats && selectedConversation">
+        <h3>Current Conversation</h3>
+        <div class="stat-item">
+          <span class="stat-label">Total Messages</span>
+          <span class="stat-value">{{ conversationStats.total_messages }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Unread Count</span>
+          <span class="stat-value">{{ conversationStats.unread_count }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Participants</span>
+          <span class="stat-value">{{ conversationStats.participant_count }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Last Activity</span>
+          <span class="stat-value">{{ conversationStats.last_activity | date: 'short' }}</span>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h3>Online Status</h3>
+        <button class="btn-secondary" (click)="loadOnlineUsers()">Refresh</button>
+        <div class="stat-item" *ngIf="onlineUsersData">
+          <span class="stat-label">Total Online</span>
+          <span class="stat-value">{{ onlineUsersData.total }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="side-panel admin-panel" *ngIf="showAdminPanel && isAdmin()">
+    <div class="panel-header">
+      <h2>⚙️ Admin Panel</h2>
+      <button class="close-btn" (click)="toggleAdminPanel()">✕</button>
+    </div>
+    
+    <div class="panel-body">
+      <div class="admin-section">
+        <h3>Search Conversation</h3>
+        <div class="search-box">
+          <input
+            type="text"
+            [(ngModel)]="adminSearchId"
+            placeholder="Enter conversation ID"
+            class="form-input"
+          />
+          <button class="btn-primary" (click)="adminSearchConversation()">Search</button>
+        </div>
+      </div>
+
+      <div class="admin-section" *ngIf="adminConversationDetails">
+        <h3>Conversation Details</h3>
+        <div class="detail-item">
+          <span class="detail-label">ID:</span>
+          <span class="detail-value">{{ adminConversationDetails.id }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Type:</span>
+          <span class="detail-value">{{ adminConversationDetails.type }}</span>
+        </div>
+        <div class="detail-item" *ngIf="adminConversationDetails.name">
+          <span class="detail-label">Name:</span>
+          <span class="detail-value">{{ adminConversationDetails.name }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Total Messages:</span>
+          <span class="detail-value">{{ adminConversationDetails.total_messages }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Participants:</span>
+          <span class="detail-value">{{ adminConversationDetails.participants.length }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Created:</span>
+          <span class="detail-value">{{ adminConversationDetails.created_at | date: 'short' }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Deleted:</span>
+          <span class="detail-value">{{ adminConversationDetails.is_deleted ? 'Yes' : 'No' }}</span>
+        </div>
+
+        <button 
+          class="btn-danger" 
+          (click)="adminDeleteConversation(adminConversationDetails.id)"
+          *ngIf="!adminConversationDetails.is_deleted"
+        >
+          Delete Conversation
+        </button>
+      </div>
+
+      <div class="admin-section">
+        <h3>System Stats</h3>
+        <button class="btn-secondary" (click)="loadOnlineUsers()">Refresh</button>
+        <div class="stat-item" *ngIf="onlineUsersData">
+          <span class="stat-label">Online Users</span>
+          <span class="stat-value">{{ onlineUsersData.total }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Conversations</span>
+          <span class="stat-value">{{ conversations.length }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Group Modal -->
+<div class="modal-overlay" *ngIf="showGroupModal" (click)="closeGroupModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Create Group Chat</h2>
+      <button class="close-btn" (click)="closeGroupModal()">✕</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Group Name *</label>
+        <input
+          type="text"
+          [(ngModel)]="groupName"
+          placeholder="Enter group name"
+          class="form-input"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Description (optional)</label>
+        <textarea
+          [(ngModel)]="groupDescription"
+          placeholder="Enter group description"
+          class="form-textarea"
+          rows="3"
+        ></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Add Participants *</label>
+        <div class="participant-input">
+          <input
+            type="text"
+            [(ngModel)]="newParticipantId"
+            placeholder="Enter user ID"
+            (keyup.enter)="addParticipant()"
+            class="form-input"
+          />
+          <button class="add-btn" (click)="addParticipant()">Add</button>
+        </div>
+      </div>
+
+      <div class="participants-list" *ngIf="selectedParticipants.length > 0">
+        <h4>Participants ({{ selectedParticipants.length }})</h4>
+        <div class="participant-item" *ngFor="let participantId of selectedParticipants">
+          <span class="participant-id">{{ participantId }}</span>
+          <button class="remove-btn" (click)="removeParticipant(participantId)">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="closeGroupModal()">Cancel</button>
+      <button 
+        class="btn-primary" 
+        (click)="createGroup()"
+        [disabled]="!groupName.trim() || selectedParticipants.length === 0 || loading"
+      >
+        {{ loading ? 'Creating...' : 'Create Group' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Settings Modal -->
+<div class="modal-overlay" *ngIf="showGroupSettingsModal" (click)="closeGroupSettings()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Group Settings</h2>
+      <button class="close-btn" (click)="closeGroupSettings()">✕</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="admin-badge-container" *ngIf="selectedConversation && isGroupAdmin(selectedConversation)">
+        <span class="admin-badge">👑 You are a group admin</span>
+      </div>
+
+      <div class="form-group">
+        <label>Group Name</label>
+        <input
+          type="text"
+          [(ngModel)]="selectedConversation!.name"
+          placeholder="Group name"
+          class="form-input"
+          [disabled]="selectedConversation != null && !isGroupAdmin(selectedConversation)"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Description (optional)</label>
+        <textarea
+          [(ngModel)]="selectedConversation!.description"
+          placeholder="Group description"
+          class="form-textarea"
+          rows="3"
+          [disabled]="selectedConversation != null && !isGroupAdmin(selectedConversation)"
+        ></textarea>
+      </div>
+
+      <div class="form-group" *ngIf="selectedConversation && isGroupAdmin(selectedConversation)">
+        <button class="btn-primary" (click)="updateGroupInfo()">
+          Update Group Info
+        </button>
+      </div>
+      <div class="form-group" *ngIf="selectedConversation && !isGroupAdmin(selectedConversation)">
+        <p class="info-message">ℹ️ Only group admins can update group information</p>
+      </div>
+
+      <div class="form-group">
+        <label>Members ({{ selectedConversation ? selectedConversation.participant_ids.length : 0 }})</label>
+        <div class="participant-input" *ngIf="selectedConversation && isGroupAdmin(selectedConversation)">
+          <input
+            type="text"
+            [(ngModel)]="newParticipantId"
+            placeholder="Enter user ID to add"
+            (keyup.enter)="addMemberToGroup()"
+            class="form-input"
+          />
+          <button class="add-btn" (click)="addMemberToGroup()">Add</button>
+        </div>
+        <p class="info-message" *ngIf="selectedConversation && !isGroupAdmin(selectedConversation)">
+          ℹ️ Only group admins can add new members
+        </p>
+      </div>
+
+      <div class="members-list" *ngIf="selectedConversation">
+        <div 
+          class="member-item" 
+          *ngFor="let memberId of selectedConversation.participant_ids"
+        >
+          <div class="member-info">
+            <div class="member-avatar">{{ getFirstChar(memberId) }}</div>
+            <span class="member-id">{{ memberId }}</span>
+            <span class="member-badge" *ngIf="memberId === currentUser?.id">(You)</span>
+            <span class="admin-crown" *ngIf="isParticipantAdmin(selectedConversation, memberId)">👑</span>
+          </div>
+          <button 
+            class="remove-btn"
+            *ngIf="canRemoveMember(selectedConversation, memberId)"
+            (click)="removeMemberFromGroup(memberId)"
+          >
+            {{ memberId === currentUser?.id ? 'Leave' : 'Remove' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-danger" (click)="removeMemberFromGroup(currentUser!.id)">
+        Leave Group
+      </button>
+      <button class="btn-secondary" (click)="closeGroupSettings()">Close</button>
     </div>
   </div>
 </div>

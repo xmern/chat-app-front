@@ -17,8 +17,8 @@ email: string = '';
 
   // Quick test users (optional)
   testUsers = [
-    { email: 'user1@example.com', password: 'password123' },
-    { email: 'user2@example.com', password: 'password123' },
+    { email: 'ojosamuel@example.org', password: 'password123' },
+    { email: 'adetokunbopeace@example.com', password: 'password123' },
     { email: 'user3@example.com', password: 'password123' }
   ];
 

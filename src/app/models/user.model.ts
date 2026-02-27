@@ -1,4 +1,11 @@
 // src/app/models/user.model.ts
+
+export enum UserType {
+  CLIENT = 'client',
+  WORKER = 'worker',
+  ADMIN = 'admin'
+}
+
 export interface User {
   id: string;
   email: string;
