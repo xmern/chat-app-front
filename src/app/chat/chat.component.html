@@ -203,19 +203,19 @@
                   <div *ngFor="let attachment of message.attachments" class="attachment">
                     <img
                       *ngIf="attachment.media_type === 'image'"
-                      [src]="rootUrl + attachment.url"
+                      [src]="rootUrl + '/' + attachment.url"
                       [alt]="attachment.file_name || 'Image'"
                       class="attachment-image"
                     />
                     <video
                       *ngIf="attachment.media_type === 'video'"
-                      [src]="rootUrl + attachment.url"
+                      [src]="rootUrl + '/' +attachment.url"
                       controls
                       class="attachment-video"
                     ></video>
                     <audio
                       *ngIf="attachment.media_type === 'audio'"
-                      [src]="rootUrl + attachment.url"
+                      [src]="rootUrl + '/' +attachment.url"
                       controls
                       class="attachment-audio"
                     ></audio>
@@ -225,7 +225,7 @@
                         <div class="file-name">{{ attachment.file_name }}</div>
                         <div class="file-size">{{ formatFileSize(attachment.file_size) }}</div>
                       </div>
-                      <a [href]="rootUrl + attachment.url" download class="file-download">
+                      <a [href]="rootUrl + '/' +attachment.url" download class="file-download">
                         ⬇️
                       </a>
                     </div>
