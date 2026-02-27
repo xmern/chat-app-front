@@ -8,6 +8,7 @@ import { SocketService } from '../services/socket.service';
 import { Conversation } from '../models/conversation.model';
 import { Message } from '../models/message.model';
 import { User, UserType } from '../models/user.model';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-chat',
@@ -49,6 +50,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   loading: boolean = false;
   typingUsers: Set<string> = new Set();
   onlineUsers: Set<string> = new Set();
+  rootUrl = environment.apiUrl
 
   private subscriptions: Subscription[] = [];
 
